@@ -17,6 +17,7 @@ cache = Cache(app)
 CORS(app)
 
 cache.set('task', TaskResult(result=[])) #假設cache key = "task"當成db table
+cache.set('task_deleted_ids', []) #保留刪除的id確保每次建立都是唯一值
 
 @app.route("/")
 @app.route("/<name>")
@@ -44,10 +45,13 @@ def create_task():
         return jsonify({"error": "欄位 text 須必填"}), 400
 
     text = params.get('text')
-    task = cache.get('task')
 
-    id = 1 if task.result == [] else len(task.result) + 1
-    new_task = Task(id, text, 0)
+    task = cache.get('task')
+    deleted_ids = cache.get('task_deleted_ids')
+
+    max_id = max([task.id for task in task.result] + deleted_ids, default=0)
+    new_id = max_id + 1
+    new_task = Task(id=new_id, text=text, status=0)
     
     task.result.append(new_task)
 
@@ -68,32 +72,41 @@ def update_task():
         return jsonify({"error": "欄位 status 須必填"}), 400
 
     id = params.get('id')
-    status = params.get('status')
     text = params.get('text', None)
+    status = params.get('status')
+    edit_task = Task(id=id, text=text, status=status)
 
     task = cache.get('task')
 
+    if (not any(x.id == id for x in task.result)):
+        return jsonify({"error": "無此 id"}), 400
+
     for item in task.result:
-        if item.id == id:
-            item.text = text
-            item.status = status
+        if item.id == edit_task.id:
+            item.text = edit_task.text
+            item.status = edit_task.status
             break
-        else:
-            return jsonify({"error": "無此 id"}), 400
 
     cache.set('task', task)
 
-    return jsonify(json.dumps(task.result[id-1].__dict__))
+    return jsonify(json.dumps(edit_task.__dict__))
 
 # delete task api
 @app.route("/task/<int:id>", methods=['DELETE'])
 def delete_task(id):
 
     task = cache.get('task')
+
+    if (not any(x.id == id for x in task.result)):
+        return jsonify({"error": "無此 id"}), 400
     
-    tasks = [item for item in task.result if item.id != id]
+    tasks = [x for x in task.result if x.id != id]
 
     cache.set('task', TaskResult(tasks))
+
+    deleted_ids = cache.get('task_deleted_ids')
+    deleted_ids.append(id)
+    cache.set('task_deleted_ids', deleted_ids)
 
     return "", 200
 

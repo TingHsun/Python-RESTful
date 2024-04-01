@@ -12,7 +12,7 @@ from domain.model.task_result import TaskResult
 
 # 備註: 若要隔離DB或外部依賴可以用Mock(return_value={mock_value})
 
-def test_list_tasks():
+def test_list_tasks_success():
     # arrange
     mock_task = TaskResult(result=[
         Task(id=1, text="買早餐", status=0),
@@ -35,6 +35,17 @@ def test_list_tasks():
     assert data["result"][1]["id"] == 2
     assert data["result"][1]["text"] == "買午餐"
     assert data["result"][1]["status"] == 1
+
+def test_list_tasks_error():
+    # arrange
+    cache.delete("task")
+
+    # act
+    with app.test_client() as client:
+        response = client.get("/tasks")
+
+    # assert
+    assert response.status_code == 500
 
 def test_create_task_success():
     # arrange
@@ -73,7 +84,7 @@ def test_create_task_missing_text():
     assert error_message["error"] == "欄位 text 須必填"
 
 def test_update_task_success():
-    #arrange
+    # arrange
     mock_task = TaskResult(result=[
         Task(id=1, text="買早餐", status=0),
         Task(id=2, text="買午餐", status=1)
@@ -134,7 +145,32 @@ def test_update_task_invalid_status():
     assert "error" in data
     assert data["error"] == "欄位 status 須必填"
 
-def test_delete_task():
+def test_update_task_not_exist_id():
+    # arrange
+    mock_task = TaskResult(result=[
+        Task(id=1, text="買早餐", status=0),
+        Task(id=3, text="買晚餐", status=1)
+    ])
+    cache.set("task", mock_task)
+
+    request_json = {
+        "id": 2,  #不存在的id
+        "text": "買午餐",
+        "status": 0
+    }
+
+    # act
+    with app.test_client() as client:
+        response = client.put("/task", json=request_json)
+
+    # assert
+    assert response.status_code == 400
+
+    data = json.loads(response.get_data(as_text=True))
+    assert "error" in data
+    assert data["error"] == "無此 id"
+
+def test_delete_task_success():
     # arrange
     mock_task = TaskResult(result=[
         Task(id=1, text="買早餐", status=0),
@@ -149,4 +185,23 @@ def test_delete_task():
 
     # assert
     assert response.status_code == 200
+
+def test_delete_task_not_exist_id():
+    # arrange
+    mock_task = TaskResult(result=[
+        Task(id=1, text="買早餐", status=0),
+        Task(id=2, text="買午餐", status=0)
+    ])
+    cache.set("task", mock_task)
+
+    # act
+    with app.test_client() as client:
+        response = client.delete("/task/5")
+
+    # assert
+    assert response.status_code == 400
+
+    data = json.loads(response.get_data(as_text=True))
+    assert "error" in data
+    assert data["error"] == "無此 id"
 
