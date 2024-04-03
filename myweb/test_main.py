@@ -99,7 +99,7 @@ def test_update_task_success():
 
     # act
     with app.test_client() as client:
-        response = client.put("/task", json=request_json)
+        response = client.put("/task/1", json=request_json)
 
     # assert
     assert response.status_code == 200
@@ -109,22 +109,22 @@ def test_update_task_success():
     assert data["text"] == "買早餐 完成"
     assert data["status"] == 1
 
-def test_update_task_missing_id():
+def test_update_task_missing_text():
     # arrange
     request_json = {
-        "text": "缺少id", #缺少id
+        "id": 1, #缺少text
         "status": 0
     }
 
     # act
     with app.test_client() as client:
-        response = client.put("/task", json=request_json)
+        response = client.put("/task/1", json=request_json)
 
     # assert
     assert response.status_code == 400
     data = json.loads(response.get_data(as_text=True))
     assert "error" in data
-    assert data["error"] == "欄位 id 須必填"
+    assert data["error"] == "欄位 text 須必填"
 
 def test_update_task_invalid_status():
     # arrange
@@ -136,14 +136,33 @@ def test_update_task_invalid_status():
 
     # act
     with app.test_client() as client:
-        response = client.put("/task", json=request_json)
+        response = client.put("/task/2", json=request_json)
 
     # assert
     assert response.status_code == 400
 
     data = json.loads(response.get_data(as_text=True))
     assert "error" in data
-    assert data["error"] == "欄位 status 須必填"
+    assert data["error"] == "欄位 status 錯誤"
+
+def test_update_task_invalid_id():
+    # arrange
+    request_json = {
+        "id": 1, #錯誤的id
+        "text": "買早餐",
+        "status": 2
+    }
+
+    # act
+    with app.test_client() as client:
+        response = client.put("/task/2", json=request_json)
+
+    # assert
+    assert response.status_code == 400
+
+    data = json.loads(response.get_data(as_text=True))
+    assert "error" in data
+    assert data["error"] == "欄位 id 錯誤"
 
 def test_update_task_not_exist_id():
     # arrange
@@ -161,10 +180,10 @@ def test_update_task_not_exist_id():
 
     # act
     with app.test_client() as client:
-        response = client.put("/task", json=request_json)
+        response = client.put("/task/2", json=request_json)
 
     # assert
-    assert response.status_code == 400
+    assert response.status_code == 404
 
     data = json.loads(response.get_data(as_text=True))
     assert "error" in data
@@ -199,7 +218,7 @@ def test_delete_task_not_exist_id():
         response = client.delete("/task/5")
 
     # assert
-    assert response.status_code == 400
+    assert response.status_code == 404
 
     data = json.loads(response.get_data(as_text=True))
     assert "error" in data

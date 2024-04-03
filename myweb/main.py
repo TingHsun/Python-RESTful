@@ -17,7 +17,7 @@ cache = Cache(app)
 CORS(app)
 
 cache.set('task', TaskResult(result=[])) #假設cache key = "task"當成db table
-cache.set('task_deleted_ids', []) #保留刪除的id確保每次建立都是唯一值
+cache.set('task_deleted_ids', []) #保留刪除的id確保每次建立資料都是唯一值
 
 @app.route("/")
 @app.route("/<name>")
@@ -31,7 +31,6 @@ def index(name=None):
 def list_tasks():
 
     task = cache.get('task')
-    # print(json.dumps([ob.__dict__ for ob in task.result]))
 
     return jsonify(json.dumps(asdict(task)))
 
@@ -40,7 +39,6 @@ def list_tasks():
 def create_task():
     params = request.get_json()
 
-    # 检查 params 是否包含 'text' 键
     if 'text' not in params:
         return jsonify({"error": "欄位 text 須必填"}), 400
 
@@ -60,26 +58,27 @@ def create_task():
     return jsonify(json.dumps(new_task.__dict__)), 201
 
 # update task api
-@app.route("/task", methods=['PUT'])
-def update_task():
+@app.route("/task/<int:id>", methods=['PUT'])
+def update_task(id):
     params = request.get_json()
-
-    # 检查 params 是否包含 'id' 键
-    if 'id' not in params or params.get('id') is None:
-        return jsonify({"error": "欄位 id 須必填"}), 400
+    
+    # 皆為必填
+    if 'id' not in params or params.get('id') != id:
+        return jsonify({"error": "欄位 id 錯誤"}), 400
+    if 'text' not in params:
+        return jsonify({"error": "欄位 text 須必填"}), 400
 
     if 'status' not in params or (params.get('status') != 0 and params.get('status') != 1):
-        return jsonify({"error": "欄位 status 須必填"}), 400
+        return jsonify({"error": "欄位 status 錯誤"}), 400
 
-    id = params.get('id')
-    text = params.get('text', None)
+    text = params.get('text')
     status = params.get('status')
     edit_task = Task(id=id, text=text, status=status)
 
     task = cache.get('task')
 
     if (not any(x.id == id for x in task.result)):
-        return jsonify({"error": "無此 id"}), 400
+        return jsonify({"error": "無此 id"}), 404
 
     for item in task.result:
         if item.id == edit_task.id:
@@ -98,7 +97,7 @@ def delete_task(id):
     task = cache.get('task')
 
     if (not any(x.id == id for x in task.result)):
-        return jsonify({"error": "無此 id"}), 400
+        return jsonify({"error": "無此 id"}), 404
     
     tasks = [x for x in task.result if x.id != id]
 
