@@ -5,6 +5,9 @@ from flask_caching import Cache
 from dataclasses import asdict
 from domain.model.task import Task
 from domain.model.task_result import TaskResult
+from repository.mssql_connection import MSSQLConnection
+from repository.task_repository import TaskRepository
+from service.task_service import TaskService
 
 config = {
     "CACHE_TYPE": "simple",
@@ -15,6 +18,8 @@ app = Flask(__name__)
 app.config.from_mapping(config)
 cache = Cache(app)
 CORS(app)
+conn = MSSQLConnection(server='', user='', password='', database='') #資料庫連線
+repository = TaskRepository(conn)
 
 cache.set('task', TaskResult(result=[])) #假設cache key = "task"當成db table
 cache.set('task_deleted_ids', []) #保留刪除的id確保每次建立資料都是唯一值
@@ -108,6 +113,14 @@ def delete_task(id):
     cache.set('task_deleted_ids', deleted_ids)
 
     return "", 200
+
+# get task list api by db
+@app.route("/db/tasks", methods=['GET'])
+def list_tasks_from_db():
+    service = TaskService(repository)
+    result = service.get_task_list()
+
+    return jsonify(result)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8000)
