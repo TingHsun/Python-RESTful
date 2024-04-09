@@ -114,13 +114,64 @@ def delete_task(id):
 
     return "", 200
 
-# get task list api by db
+# get task list api from db
 @app.route("/db/tasks", methods=['GET'])
 def list_tasks_from_db():
     service = TaskService(repository)
     result = service.get_task_list()
 
     return jsonify(result)
+
+# insert task api from db
+@app.route("/db/task", methods=['POST'])
+def create_task_from_db():
+    params = request.get_json()
+
+    if 'text' not in params:
+        return jsonify({"error": "欄位 text 須必填"}), 400
+
+    text = params.get('text')
+
+    service = TaskService(repository)
+    id = service.add_task(text)
+    result = service.get_task(id)
+
+    return jsonify(json.dumps(result)), 201
+
+# update task api from db
+@app.route("/db/task/<int:id>", methods=['PUT'])
+def update_task_from_db(id):
+    params = request.get_json()
+    
+    # 皆為必填
+    if 'id' not in params or params.get('id') != id:
+        return jsonify({"error": "欄位 id 錯誤"}), 400
+    if 'text' not in params:
+        return jsonify({"error": "欄位 text 須必填"}), 400
+    if 'status' not in params or (params.get('status') != 0 and params.get('status') != 1):
+        return jsonify({"error": "欄位 status 錯誤"}), 400
+
+    text = params.get('text')
+    status = params.get('status')
+    task = Task(id=id, text=text, status=status)
+
+    service = TaskService(repository)
+    service.edit_task(task)
+
+    return jsonify(json.dumps(task.__dict__))
+
+# delete task api from db
+@app.route("/db/task/<int:id>", methods=['DELETE'])
+def delete_task_from_db(id):
+    service = TaskService(repository)
+    result = service.get_task(id)
+
+    if (result is None):
+        return jsonify({"error": "無此 id"}), 404
+
+    service.remove_task(id)
+
+    return "", 200
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8000)
